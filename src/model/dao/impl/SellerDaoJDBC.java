@@ -10,10 +10,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SellerDaoJDBC implements SellerDao
 {
@@ -27,6 +24,48 @@ public class SellerDaoJDBC implements SellerDao
     @Override
     public void insert(Seller seller)
     {
+        PreparedStatement preparedStatement = null;
+
+        try
+        {
+            preparedStatement = connection.prepareStatement(
+                "INSERT INTO seller " +
+                    "(Name, Email, BirthDate, BaseSalary, DepartmentId) " +
+                    "VALUES " +
+                    "(?, ?, ?, ?, ?)",
+                    PreparedStatement.RETURN_GENERATED_KEYS);
+
+            preparedStatement.setString(1, seller.getName());
+            preparedStatement.setString(2, seller.getEmail());
+            preparedStatement.setDate(3, java.sql.Date.valueOf(seller.getBirthDate()));
+            preparedStatement.setDouble(4, seller.getBaseSalary());
+            preparedStatement.setInt(5, seller.getDepartment().getId());
+
+            int rowsAffected = preparedStatement.executeUpdate();
+
+            if (rowsAffected > 0)
+            {
+                ResultSet resultSet = preparedStatement.getGeneratedKeys();
+                if (resultSet.next())
+                {
+                    int id = resultSet.getInt(1);
+                    seller.setId(id);
+                }
+                DB.closeResultSet(resultSet);
+            }
+            else
+            {
+                throw new DbException("Unexpected error! No rows affected!");
+            }
+        }
+        catch (SQLException e)
+        {
+            throw new DbException(e.getMessage());
+        }
+        finally
+        {
+            DB.closeStatement(preparedStatement);
+        }
     }
 
     @Override
@@ -98,13 +137,11 @@ public class SellerDaoJDBC implements SellerDao
             while (resultSet.next())
             {
                 Department dep = map.get(resultSet.getInt("DepartmentId"));
-
                 if (dep == null)
                 {
                     dep = instantiateDepartment(resultSet);
                     map.put(resultSet.getInt("DepartmentId"), dep);
                 }
-
                 Seller seller = instantiateSeller(resultSet, dep);
                 sellerList.add(seller);
             }
@@ -143,13 +180,11 @@ public class SellerDaoJDBC implements SellerDao
             while (resultSet.next())
             {
                 Department dep = map.get(resultSet.getInt("DepartmentId"));
-
                 if (dep == null)
                 {
                     dep = instantiateDepartment(resultSet);
                     map.put(resultSet.getInt("DepartmentId"), dep);
                 }
-
                 Seller seller = instantiateSeller(resultSet, dep);
                 sellerList.add(seller);
             }
